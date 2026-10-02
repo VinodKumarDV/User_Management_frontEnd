@@ -1,0 +1,23 @@
+:root {
+  font-family: Arial, 'Segoe UI', sans-serif;
+  color: #222;
+  background: #fff;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+#root { min-height: 100vh; }
+h1, h2, h3, p { margin-top: 0; }
