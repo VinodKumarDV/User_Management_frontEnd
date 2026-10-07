@@ -7,6 +7,7 @@ import {
     Mail,
     Pencil,
     Search,
+    UsersRound,
 } from 'lucide-react';
 import './App.css';
 
@@ -20,6 +21,7 @@ type User = {
 
 type Route = { page: 'login' | 'register' | 'profile' | 'users' | 'edit'; userId?: string };
 type ApiResult<T> = T & { message?: string };
+type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
@@ -51,6 +53,10 @@ function App() {
     const [users, setUsers] = useState<User[]>([]);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [filter, setFilter] = useState('');
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
+    const [directoryPage, setDirectoryPage] = useState(1);
+    const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
     const [busy, setBusy] = useState(true);
     const [pageError, setPageError] = useState('');
     const [toast, setToast] = useState('');
@@ -74,16 +80,31 @@ function App() {
     }, []);
 
     useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setSearch(filter.trim());
+            setDirectoryPage(1);
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [filter]);
+
+    useEffect(() => {
         if (!token || activeRoute.page === 'login' || activeRoute.page === 'register') return;
         let current = true;
         const load = async () => {
+            setBusy(true);
             try {
                 if (activeRoute.page === 'profile') {
                     const result = await apiRequest<{ user: User }>('/api/profile');
                     if (current) setProfile(result.user);
                 } else if (activeRoute.page === 'users') {
-                    const result = await apiRequest<{ users: User[] }>('/api/users');
-                    if (current) setUsers(result.users);
+                    const params = new URLSearchParams({ page: String(directoryPage), pageSize: String(pagination.pageSize) });
+                    if (search) params.set('search', search);
+                    if (statusFilter !== 'all') params.set('status', statusFilter);
+                    const result = await apiRequest<{ users: User[]; pagination: Pagination }>(`/api/users?${params}`);
+                    if (current) {
+                        setUsers(result.users);
+                        setPagination(result.pagination);
+                    }
                 } else if (activeRoute.page === 'edit' && activeRoute.userId) {
                     const result = await apiRequest<{ user: User }>(`/api/users/${activeRoute.userId}`);
                     if (current) setEditingUser(result.user);
@@ -104,7 +125,7 @@ function App() {
         return () => {
             current = false;
         };
-    }, [token, activeRoute.page, activeRoute.userId]);
+    }, [token, activeRoute.page, activeRoute.userId, directoryPage, pagination.pageSize, search, statusFilter]);
 
     useEffect(() => {
         if (!toast) return;
@@ -137,13 +158,10 @@ function App() {
         );
     }
 
-    const visibleUsers = users.filter((user) =>
-        `${user.firstName} ${user.lastName} ${user.email}`.toLowerCase().includes(filter.toLowerCase()),
-    );
-
     return (
         <div className="app-shell">
             <header className="app-header">
+                <Brand />
                 <nav className="app-nav" aria-label="Main navigation">
                     <button className={activeRoute.page === 'profile' ? 'app-nav-link active' : 'app-nav-link'} onClick={() => navigate('/profile')}>Profile</button>
                     <button className={activeRoute.page === 'users' || activeRoute.page === 'edit' ? 'app-nav-link active' : 'app-nav-link'} onClick={() => navigate('/users')}>Users</button>
@@ -157,9 +175,13 @@ function App() {
                     {activeRoute.page === 'profile' && <ProfilePage user={profile} busy={busy} onEdit={() => profile && navigate(`/users/${profile.id}/edit`)} />}
                     {activeRoute.page === 'users' && (
                         <UsersPage
-                            users={visibleUsers}
+                            users={users}
                             filter={filter}
                             onFilter={setFilter}
+                            statusFilter={statusFilter}
+                            onStatusFilter={(value) => { setStatusFilter(value); setDirectoryPage(1); }}
+                            pagination={pagination}
+                            onPageChange={setDirectoryPage}
                             onEdit={(id) => { setEditingUser(null); navigate(`/users/${id}/edit`); }}
                             busy={busy}
                         />
@@ -202,7 +224,11 @@ function ProfilePage({ user, busy, onEdit }: { user: User | null; busy: boolean;
             {busy && !user ? <LoadingState /> : user ? (
                 <section className="profile-layout">
                     <div className="profile-summary">
-                        <div><h2>{user.firstName} {user.lastName}</h2><p>{user.email}</p></div>
+                        <div className="profile-avatar" aria-hidden="true">{user.firstName.charAt(0)}{user.lastName.charAt(0)}</div>
+                        <div className="profile-summary-copy">
+                            <div className="profile-name-row"><h2>{user.firstName} {user.lastName}</h2><StatusBadge status={user.status} /></div>
+                            <p>{user.email}</p>
+                        </div>
                     </div>
                     <div className="detail-section">
                         <div className="section-heading"><div>
@@ -222,19 +248,30 @@ function ProfilePage({ user, busy, onEdit }: { user: User | null; busy: boolean;
     );
 }
 
-function UsersPage({ users, filter, onFilter, onEdit, busy }: {
+function UsersPage({ users, filter, onFilter, statusFilter, onStatusFilter, pagination, onPageChange, onEdit, busy }: {
     users: User[];
     filter: string;
     onFilter: (value: string) => void;
+    statusFilter: 'all' | User['status'];
+    onStatusFilter: (value: 'all' | User['status']) => void;
+    pagination: Pagination;
+    onPageChange: (page: number) => void;
     onEdit: (id: string) => void;
     busy: boolean;
 }) {
     return (
         <>
-            <div className="page-heading"><h1>People</h1></div>
+            <div className="page-heading"><h1>User directory</h1></div>
             <div className="directory-meta">
                 <label className="search-field">
-                    <Search size={17} /><input value={filter} onChange={(event) => onFilter(event.target.value)} placeholder="Search people" aria-label="Search people" />
+                    <Search size={17} /><input value={filter} onChange={(event) => onFilter(event.target.value)} placeholder="Search users" aria-label="Search users" />
+                </label>
+                <label className="status-filter">Status
+                    <select value={statusFilter} onChange={(event) => onStatusFilter(event.target.value as 'all' | User['status'])} aria-label="Filter by status">
+                        <option value="all">All statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
                 </label>
             </div>
             <section className="table-wrap" aria-label="Users">
@@ -249,10 +286,18 @@ function UsersPage({ users, filter, onFilter, onEdit, busy }: {
                                 <td><StatusBadge status={user.status} /></td>
                                 <td className="action-column"><button className="icon-button edit-action" onClick={() => onEdit(user.id)} aria-label={`Edit ${user.firstName} ${user.lastName}`} title="Edit person"><Pencil size={16} /></button></td>
                             </tr>
-                        )) : <tr><td colSpan={5}><EmptyState message={filter ? 'No people match your search.' : 'No people have been added yet.'} /></td></tr>}
+                        )) : <tr><td colSpan={5}><EmptyState message={filter || statusFilter !== 'all' ? 'No users match these filters.' : 'No users have been added yet.'} /></td></tr>}
                     </tbody>
                 </table>
             </section>
+            <div className="directory-footer">
+                <span aria-live="polite">{pagination.total === 0 ? 'No results' : `Showing ${(pagination.page - 1) * pagination.pageSize + 1}-${Math.min(pagination.page * pagination.pageSize, pagination.total)} of ${pagination.total} users`}</span>
+                <div className="pagination-controls">
+                    <button className="icon-button" onClick={() => onPageChange(pagination.page - 1)} disabled={busy || pagination.page <= 1} aria-label="Previous page"><ArrowLeft size={16} /></button>
+                    <span>Page {pagination.page} of {Math.max(pagination.totalPages, 1)}</span>
+                    <button className="icon-button" onClick={() => onPageChange(pagination.page + 1)} disabled={busy || pagination.page >= pagination.totalPages} aria-label="Next page"><ArrowRight size={16} /></button>
+                </div>
+            </div>
         </>
     );
 }
@@ -336,6 +381,7 @@ function AuthScreen({ mode, onNavigate, onAuthenticated, onNotice, notice }: {
     return (
         <main className="simple-auth">
             <header className="simple-header">
+                <Brand />
                 <nav aria-label="Account navigation">
                     <button className={!isRegister ? 'simple-nav-link active' : 'simple-nav-link'} onClick={() => onNavigate('/login')}>Sign in</button>
                     <button className={isRegister ? 'simple-nav-link active' : 'simple-nav-link'} onClick={() => onNavigate('/register')}>Register</button>
@@ -360,6 +406,10 @@ function AuthScreen({ mode, onNavigate, onAuthenticated, onNotice, notice }: {
     );
 }
 
+function Brand() {
+    return <div className="brand-lockup"><span className="brand-icon"><UsersRound size={18} strokeWidth={2.2} /></span><span>User Management</span></div>;
+}
+
 function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
     return <div className="page-heading"><div className="eyebrow">{eyebrow}</div><h1>{title}</h1>{description && <p>{description}</p>}</div>;
 }
@@ -369,7 +419,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function StatusBadge({ status }: { status: User['status'] }) {
-    return <span className="status-badge">{status}</span>;
+    return <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>;
 }
 
 function LoadingState() {
