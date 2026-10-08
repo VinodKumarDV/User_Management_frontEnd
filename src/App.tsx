@@ -1,27 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import {
-    ArrowLeft,
-    ArrowRight,
-    Check,
-    LogOut,
-    Mail,
-    Pencil,
-    Search,
-    UsersRound,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, LogOut } from 'lucide-react';
+import { AuthScreen } from './components/AuthScreen';
+import { EditPage } from './components/EditPage';
+import { ProfilePage } from './components/ProfilePage';
+import { UsersPage } from './components/UsersPage';
+import { Brand, type Pagination, type User } from './components/shared';
 import './App.css';
-
-type User = {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    status: 'Active' | 'Inactive';
-};
 
 type Route = { page: 'login' | 'register' | 'profile' | 'users' | 'edit'; userId?: string };
 type ApiResult<T> = T & { message?: string };
-type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
@@ -154,6 +141,7 @@ function App() {
                 onAuthenticated={onAuthenticated}
                 onNotice={setToast}
                 notice={toast}
+                request={apiRequest}
             />
         );
     }
@@ -215,219 +203,6 @@ function App() {
             {toast && <div className="toast" role="status"><Check size={17} />{toast}</div>}
         </div>
     );
-}
-
-function ProfilePage({ user, busy, onEdit }: { user: User | null; busy: boolean; onEdit: () => void }) {
-    return (
-        <>
-            <PageHeading eyebrow="ACCOUNT" title="My profile" />
-            {busy && !user ? <LoadingState /> : user ? (
-                <section className="profile-layout">
-                    <div className="profile-summary">
-                        <div className="profile-avatar" aria-hidden="true">{user.firstName.charAt(0)}{user.lastName.charAt(0)}</div>
-                        <div className="profile-summary-copy">
-                            <div className="profile-name-row"><h2>{user.firstName} {user.lastName}</h2><StatusBadge status={user.status} /></div>
-                            <p>{user.email}</p>
-                        </div>
-                    </div>
-                    <div className="detail-section">
-                        <div className="section-heading"><div>
-                            <h3>Personal information</h3>
-                        </div><button className="button button-secondary" onClick={onEdit}><Pencil size={15} /> Edit profile</button>
-                        </div>
-                        <div className="detail-grid">
-                            <Detail label="First name" value={user.firstName} />
-                            <Detail label="Last name" value={user.lastName} />
-                            <Detail label="Email address" value={user.email} />
-                            <div className="detail-item"><span className="detail-label">Account status</span><StatusBadge status={user.status} /></div>
-                        </div>
-                    </div>
-                </section>
-            ) : <EmptyState message="Your profile could not be loaded." />}
-        </>
-    );
-}
-
-function UsersPage({ users, filter, onFilter, statusFilter, onStatusFilter, pagination, onPageChange, onEdit, busy }: {
-    users: User[];
-    filter: string;
-    onFilter: (value: string) => void;
-    statusFilter: 'all' | User['status'];
-    onStatusFilter: (value: 'all' | User['status']) => void;
-    pagination: Pagination;
-    onPageChange: (page: number) => void;
-    onEdit: (id: string) => void;
-    busy: boolean;
-}) {
-    return (
-        <>
-            <div className="page-heading"><h1>User directory</h1></div>
-            <div className="directory-meta">
-                <label className="search-field">
-                    <Search size={17} /><input value={filter} onChange={(event) => onFilter(event.target.value)} placeholder="Search users" aria-label="Search users" />
-                </label>
-                <label className="status-filter">Status
-                    <select value={statusFilter} onChange={(event) => onStatusFilter(event.target.value as 'all' | User['status'])} aria-label="Filter by status">
-                        <option value="all">All statuses</option>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </select>
-                </label>
-            </div>
-            <section className="table-wrap" aria-label="Users">
-                <table>
-                    <thead><tr><th>ID</th><th>PERSON</th><th>EMAIL</th><th>STATUS</th><th className="action-column">ACTION</th></tr></thead>
-                    <tbody>
-                        {busy ? <tr><td colSpan={5}><LoadingState /></td></tr> : users.length ? users.map((user) => (
-                            <tr key={user.id}>
-                                <td className="id-cell">{user.id}</td>
-                                <td><strong>{user.firstName} {user.lastName}</strong></td>
-                                <td className="email-cell">{user.email}</td>
-                                <td><StatusBadge status={user.status} /></td>
-                                <td className="action-column"><button className="icon-button edit-action" onClick={() => onEdit(user.id)} aria-label={`Edit ${user.firstName} ${user.lastName}`} title="Edit person"><Pencil size={16} /></button></td>
-                            </tr>
-                        )) : <tr><td colSpan={5}><EmptyState message={filter || statusFilter !== 'all' ? 'No users match these filters.' : 'No users have been added yet.'} /></td></tr>}
-                    </tbody>
-                </table>
-            </section>
-            <div className="directory-footer">
-                <span aria-live="polite">{pagination.total === 0 ? 'No results' : `Showing ${(pagination.page - 1) * pagination.pageSize + 1}-${Math.min(pagination.page * pagination.pageSize, pagination.total)} of ${pagination.total} users`}</span>
-                <div className="pagination-controls">
-                    <button className="icon-button" onClick={() => onPageChange(pagination.page - 1)} disabled={busy || pagination.page <= 1} aria-label="Previous page"><ArrowLeft size={16} /></button>
-                    <span>Page {pagination.page} of {Math.max(pagination.totalPages, 1)}</span>
-                    <button className="icon-button" onClick={() => onPageChange(pagination.page + 1)} disabled={busy || pagination.page >= pagination.totalPages} aria-label="Next page"><ArrowRight size={16} /></button>
-                </div>
-            </div>
-        </>
-    );
-}
-
-function EditPage({ user, busy, error, onCancel, onSave }: {
-    user: User | null;
-    busy: boolean;
-    error: string;
-    onCancel: () => void;
-    onSave: (values: Pick<User, 'firstName' | 'lastName' | 'email' | 'status'>) => Promise<void>;
-}) {
-    const [localError, setLocalError] = useState('');
-    const submit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const values = new FormData(event.currentTarget);
-        const firstName = String(values.get('firstName') ?? '').trim();
-        const lastName = String(values.get('lastName') ?? '').trim();
-        const email = String(values.get('email') ?? '').trim();
-        const status = String(values.get('status') ?? 'Active') as User['status'];
-        if (!firstName || !lastName || !email) {
-            setLocalError('Complete all fields before saving.');
-            return;
-        }
-        setLocalError('');
-        await onSave({ firstName, lastName, email, status });
-    };
-
-    return (
-        <>
-            <PageHeading eyebrow="DIRECTORY / EDIT" title="Edit person" description="Update profile details and account access." />
-            {busy && !user ? <LoadingState /> : user ? (
-                <form className="edit-form" onSubmit={submit}>
-                    <div className="edit-form-head"><div className="edit-person"><div><strong>{user.firstName} {user.lastName}</strong><span>{user.email}</span></div></div></div>
-                    <div className="form-grid">
-                        <label className="field"><span>First name</span><input name="firstName" defaultValue={user.firstName} required maxLength={80} autoComplete="given-name" /></label>
-                        <label className="field"><span>Last name</span><input name="lastName" defaultValue={user.lastName} required maxLength={80} autoComplete="family-name" /></label>
-                        <label className="field field-full"><span>Email address</span><input name="email" type="email" defaultValue={user.email} required maxLength={254} autoComplete="email" /></label>
-                        <fieldset className="status-field field-full"><legend>Account status</legend><div className="status-options"><label><input type="radio" name="status" value="Active" defaultChecked={user.status === 'Active'} /><span className="radio-dot" /><span><strong>Active</strong></span></label><label><input type="radio" name="status" value="Inactive" defaultChecked={user.status === 'Inactive'} /><span className="radio-dot" /><span><strong>Inactive</strong></span></label></div></fieldset>
-                    </div>
-                    {(localError || error) && <div className="form-error" role="alert">{localError || error}</div>}
-                    <div className="form-actions"><button type="button" className="button button-secondary" onClick={onCancel}><ArrowLeft size={16} /> Cancel</button><button type="submit" className="button button-primary" disabled={busy}><Check size={16} /> {busy ? 'Saving...' : 'Save changes'}</button></div>
-                </form>
-            ) : <EmptyState message={error || 'This person could not be found.'} />}
-        </>
-    );
-}
-
-function AuthScreen({ mode, onNavigate, onAuthenticated, onNotice, notice }: {
-    mode: 'login' | 'register';
-    onNavigate: (path: string) => void;
-    onAuthenticated: (token: string) => void;
-    onNotice: (message: string) => void;
-    notice: string;
-}) {
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState('');
-    const isRegister = mode === 'register';
-
-    const submit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setBusy(true);
-        setError('');
-        const data = new FormData(event.currentTarget);
-        const body = Object.fromEntries(data.entries());
-        try {
-            if (isRegister) {
-                await apiRequest('/api/register', { method: 'POST', body: JSON.stringify(body) });
-                onNotice('Account created. Sign in to continue.');
-                onNavigate('/login');
-            } else {
-                const result = await apiRequest<{ token: string }>('/api/login', { method: 'POST', body: JSON.stringify(body) });
-                onAuthenticated(result.token);
-            }
-        } catch (submitError) {
-            setError(submitError instanceof Error ? submitError.message : 'Unable to continue. Please try again.');
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    return (
-        <main className="simple-auth">
-            <header className="simple-header">
-                <Brand />
-                <nav aria-label="Account navigation">
-                    <button className={!isRegister ? 'simple-nav-link active' : 'simple-nav-link'} onClick={() => onNavigate('/login')}>Sign in</button>
-                    <button className={isRegister ? 'simple-nav-link active' : 'simple-nav-link'} onClick={() => onNavigate('/register')}>Register</button>
-                </nav>
-            </header>
-            <section className="simple-auth-main">
-                <div className="auth-form-wrap">
-                    <h2>{isRegister ? 'Create account' : 'Sign in'}</h2>
-                    <p className="auth-subtitle">{isRegister ? 'Enter your details to register.' : 'Enter your account details.'}</p>
-                    {notice && <div className="auth-success" role="status">{notice}</div>}
-                    <form className="auth-form" onSubmit={submit}>
-                        {isRegister && <div className="form-grid"><label className="field"><span>First name</span><input name="firstName" placeholder="e.g. Alex" autoComplete="given-name" required maxLength={80} /></label><label className="field"><span>Last name</span><input name="lastName" placeholder="e.g. Morgan" autoComplete="family-name" required maxLength={80} /></label></div>}
-                        <label className="field"><span>Email address</span><input name="email" type="email" placeholder="you@company.com" autoComplete="email" required maxLength={254} /></label>
-                        <label className="field"><span>Password</span><input name="password" type="password" placeholder={isRegister ? 'At least 8 characters' : 'Enter your password'} autoComplete={isRegister ? 'new-password' : 'current-password'} required minLength={isRegister ? 8 : 1} maxLength={128} /></label>
-                        {error && <div className="form-error" role="alert">{error}</div>}
-                        <button className="button button-primary auth-submit" disabled={busy}>{busy ? (isRegister ? 'Creating account…' : 'Signing in…') : (isRegister ? 'Create account' : 'Sign in')}<ArrowRight size={17} /></button>
-                    </form>
-                    <div className="auth-switch">{isRegister ? 'Already registered?' : 'Need an account?'} <button onClick={() => onNavigate(isRegister ? '/login' : '/register')}>{isRegister ? 'Sign in' : 'Register'}</button></div>
-                </div>
-            </section>
-        </main>
-    );
-}
-
-function Brand() {
-    return <div className="brand-lockup"><span className="brand-icon"><UsersRound size={18} strokeWidth={2.2} /></span><span>User Management</span></div>;
-}
-
-function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
-    return <div className="page-heading"><div className="eyebrow">{eyebrow}</div><h1>{title}</h1>{description && <p>{description}</p>}</div>;
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-    return <div className="detail-item"><span className="detail-label">{label}</span><span className="detail-value">{value}</span></div>;
-}
-
-function StatusBadge({ status }: { status: User['status'] }) {
-    return <span className={`status-badge ${status.toLowerCase()}`}>{status}</span>;
-}
-
-function LoadingState() {
-    return <div className="loading-state"><span className="loading-dot" /> Loading…</div>;
-}
-
-function EmptyState({ message }: { message: string }) {
-    return <div className="empty-state"><Mail size={21} /><p>{message}</p></div>;
 }
 
 export default App;
