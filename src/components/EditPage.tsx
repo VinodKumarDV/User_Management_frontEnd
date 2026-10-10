@@ -4,7 +4,13 @@ import { EmptyState, LoadingState, PageHeading, type User } from './shared';
 
 type UserValues = Pick<User, 'firstName' | 'lastName' | 'email' | 'status'>;
 
-export function EditPage({ user, busy, error, onCancel, onSave }: {
+export function EditPage({
+    user,
+    busy,
+    error,
+    onCancel,
+    onSave,
+}: {
     user: User | null;
     busy: boolean;
     error: string;
@@ -29,34 +35,96 @@ export function EditPage({ user, busy, error, onCancel, onSave }: {
 
     return (
         <>
-            <PageHeading eyebrow="DIRECTORY / EDIT" title="Edit person" description="Update profile details and account access." />
-            {busy && !user ? <LoadingState /> : user ? (
+            <PageHeading
+                eyebrow="DIRECTORY / EDIT"
+                title="Edit person"
+                description="Update profile details and account access."
+            />
+            {busy && !user ? (
+                <LoadingState />
+            ) : user ? (
                 <form className="edit-form" onSubmit={submit}>
-                    <div className="edit-form-head"><div className="edit-person"><strong>{user.firstName} {user.lastName}</strong><span>{user.email}</span></div></div>
+                    <div className="edit-form-head">
+                        <div className="edit-person">
+                            <strong>
+                                {user.firstName} {user.lastName}
+                            </strong>
+                            <span>{user.email}</span>
+                        </div>
+                    </div>
                     <div className="form-grid">
-                        <label className="field"><span>First name</span><input name="firstName" defaultValue={user.firstName} required maxLength={80} autoComplete="given-name" /></label>
-                        <label className="field"><span>Last name</span><input name="lastName" defaultValue={user.lastName} required maxLength={80} autoComplete="family-name" /></label>
-                        <label className="field field-full"><span>Email address</span><input name="email" type="email" defaultValue={user.email} required maxLength={254} autoComplete="email" /></label>
+                        <label className="field">
+                            <span>First name</span>
+                            <input
+                                name="firstName"
+                                defaultValue={user.firstName}
+                                required
+                                maxLength={80}
+                                autoComplete="given-name"
+                            />
+                        </label>
+                        <label className="field">
+                            <span>Last name</span>
+                            <input
+                                name="lastName"
+                                defaultValue={user.lastName}
+                                required
+                                maxLength={80}
+                                autoComplete="family-name"
+                            />
+                        </label>
+                        <label className="field field-full">
+                            <span>Email address</span>
+                            <input
+                                name="email"
+                                type="email"
+                                defaultValue={user.email}
+                                required
+                                maxLength={254}
+                                autoComplete="email"
+                            />
+                        </label>
                         <fieldset className="status-field field-full">
                             <legend>Account status</legend>
                             <div className="status-options">
                                 {(['Active', 'Inactive'] as const).map((status) => (
                                     <label key={status}>
-                                        <input type="radio" name="status" value={status} defaultChecked={user.status === status} />
+                                        <input
+                                            type="radio"
+                                            name="status"
+                                            value={status}
+                                            defaultChecked={user.status === status}
+                                        />
                                         <span className="radio-dot" />
-                                        <span><strong>{status}</strong></span>
+                                        <span>
+                                            <strong>{status}</strong>
+                                        </span>
                                     </label>
                                 ))}
                             </div>
                         </fieldset>
                     </div>
-                    {(localError || error) && <div className="form-error" role="alert">{localError || error}</div>}
+                    {(localError || error) && (
+                        <div className="form-error" role="alert">
+                            {localError || error}
+                        </div>
+                    )}
                     <div className="form-actions">
-                        <button type="button" className="button button-secondary" onClick={onCancel}><ArrowLeft size={16} /> Cancel</button>
-                        <button type="submit" className="button button-primary" disabled={busy}><Check size={16} /> {busy ? 'Saving...' : 'Save changes'}</button>
+                        <button
+                            type="button"
+                            className="button button-secondary"
+                            onClick={onCancel}
+                        >
+                            <ArrowLeft size={16} /> Cancel
+                        </button>
+                        <button type="submit" className="button button-primary" disabled={busy}>
+                            <Check size={16} /> {busy ? 'Saving...' : 'Save changes'}
+                        </button>
                     </div>
                 </form>
-            ) : <EmptyState message={error || 'This person could not be found.'} />}
+            ) : (
+                <EmptyState message={error || 'This person could not be found.'} />
+            )}
         </>
     );
 }
